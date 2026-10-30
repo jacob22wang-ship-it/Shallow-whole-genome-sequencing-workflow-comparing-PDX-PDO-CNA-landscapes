@@ -1,0 +1,1 @@
+The overall aim of this repository is to detail the workflow used to process shallow whole genome sequencing data to compare copy number alteration (CNA) landscapes between patient derived xenograft (PDX) and its matched patient derived organoid (PDO).
