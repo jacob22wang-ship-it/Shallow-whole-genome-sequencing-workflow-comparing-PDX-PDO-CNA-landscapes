@@ -1,0 +1,78 @@
+Please note that this is for running preprocessing steps to obtain "recal.cram" file for downstream variant calling using locally downloaded Nextflow (v25.10.4) and nf-core/sarek (v3.8.1) programs on the HPC.
+Please create the four files detailed below and submit the run.sh file (the fourth file) using sbatch on the HPC.
+#force_limits.config (first file)
+process {
+
+    withName: '.*CNVKIT.*' {
+        executor = 'slurm'
+        queue    = 'veryhimem'
+        cpus     = 1
+        memory   = '500.GB'
+        time     = '48:00:00'
+        scratch  = true
+    }
+}
+
+#uhn.config (second file)
+singularity {
+  enabled = true
+  autoMounts = true
+}
+
+wave {
+  enabled = false
+}
+
+process {
+  executor = 'slurm'
+  clusterOptions = '--account xxx'
+  queue = 'all'
+}
+
+#params_PDX_LPWGS.yaml (third file)
+input: "/DIR"
+outdir: "/DIR"
+igenomes_ignore: true
+igenomes_base: "/...reference_genome"
+fasta: "/...GRCh38.primary_assembly.genome.fa"
+fasta_fai: "/...GRCh38.primary_assembly.genome.fa.fai"
+dict: "/...GRCh38.primary_assembly.genome.dict"
+bwa: "/...reference_genome/GRCh38"
+dbsnp: "/...reference_genome/resources/Homo_sapiens_assembly38.dbsnp138.vcf.gz"
+dbsnp_tbi: "/...reference_genome/resources/Homo_sapiens_assembly38.dbsnp138.vcf.gz.tbi"
+snpeff_cache: "/...reference_genome"
+vep_cache: "/...reference_genome"
+known_indels: "/...reference_genome/resources/Mills_and_1000G_gold_standard.indels.hg38.vcf.gz"
+known_indels_tbi: "/...reference_genome/resources/Mills_and_1000G_gold_standard.indels.hg38.vcf.gz.tbi"
+
+#run_PDX_LPWGS.sh
+#!/bin/bash
+#SBATCH -J PDX
+#SBATCH -p veryhimem
+#SBATCH -t 4-00:00:00
+#SBATCH --mem=800G
+#SBATCH -c 1
+#SBATCH -o PDX-%j.out
+#SBATCH --error PDX-%j.err
+
+export NXF_OFFLINE=true
+
+module load java/21
+module load singularity/4.3.2
+
+export TMPDIR=/DIR
+export TMP=/DIR
+export TEMP=/DIR
+
+export NXF_SINGULARITY_CACHEDIR=/DIR
+
+cd /DIR
+
+./nextflow run /DIR \
+    -profile singularity \
+    -c /...uhn.config \
+    -c /...force_limits.config \
+    -params-file /...params_PDX_LPWGS.yaml \
+    -w /DIR
+
+
