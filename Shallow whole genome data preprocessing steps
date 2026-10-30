@@ -1,6 +1,6 @@
 #Please note that this is for running preprocessing steps to obtain "recal.cram" file for downstream variant calling using locally downloaded Nextflow (v25.10.4) and nf-core/sarek (v3.8.1) programs on the HPC.
 #Please create the four files detailed below and submit the run.sh file (the fourth file) using sbatch on the HPC.
-#force_limits.config (first file)
+#force_limits.config (the first file)
 process {
 
     withName: '.*CNVKIT.*' {
@@ -13,7 +13,7 @@ process {
     }
 }
 
-#uhn.config (second file)
+#uhn.config (the second file)
 singularity {
   enabled = true
   autoMounts = true
@@ -29,7 +29,7 @@ process {
   queue = 'all'
 }
 
-#params_PDX_LPWGS.yaml (third file)
+#params_PDX_LPWGS.yaml (the third file)
 input: "/DIR"
 outdir: "/DIR"
 igenomes_ignore: true
@@ -45,7 +45,7 @@ vep_cache: "/...reference_genome"
 known_indels: "/...reference_genome/resources/Mills_and_1000G_gold_standard.indels.hg38.vcf.gz"
 known_indels_tbi: "/...reference_genome/resources/Mills_and_1000G_gold_standard.indels.hg38.vcf.gz.tbi"
 
-#run_PDX_LPWGS.sh (fourth file)
+#run_PDX_LPWGS.sh (the fourth file)
 #!/bin/bash
 #SBATCH -J PDX
 #SBATCH -p veryhimem
