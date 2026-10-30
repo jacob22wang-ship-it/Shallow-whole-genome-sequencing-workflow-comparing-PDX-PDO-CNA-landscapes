@@ -25,7 +25,7 @@ samtools index \
   --chromosome "chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chr21,chr22,chrX,chrY" \
   file.bam > file.wig
 
-#Run ichorCNV
+#Run ichorCNA
 Rscript /cluster/projects/nguyengroup/Jacob/ichorCNA/scripts/runIchorCNA.R \
 --id file_name \
 --WIG /file.wig \
@@ -49,7 +49,7 @@ Rscript /cluster/projects/nguyengroup/Jacob/ichorCNA/scripts/runIchorCNA.R \
 --libdir /DIR \
 --outDir /DIR
 
-#Modified_ichorCNV_plotting.R
+#Modified_ichorCNA_plotting.R
 # file:   plotting.R
 # author: Gavin Ha, Ph.D.
 #         Fred Hutchinson Cancer Research Center
