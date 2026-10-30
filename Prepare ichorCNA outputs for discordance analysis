@@ -1,0 +1,271 @@
+#By the end of the ichorCNA workflow, you should obtain two output files: seg.txt, which contains median segment-level log2R values, and correctedDepth.txt, which contains bin-level raw log2R values.
+#The purpose of this script is to add a new column, Adj_seg.median.logR, to the seg.txt file. 
+#These adjusted median segment log2R values are then mapped to the corresponding genomic bins in the correctedDepth.txt file so that each bin is assigned the adjusted median segment log2R value of the segment that overlaps its genomic coordinates
+#The final ichorCNA copy number classification column (Corrected_Call) will also be added to the correctedDepth.txt file.
+#Additionally, the ichorCNA's copy number classification column (Corrected_Call) will be simplified as gain, neutral, loss.
+#Finally, an additional column will be added to the correctedDepth.txt file based on our threshold-based classification strategy. Specifically, bins with adjusted median segment log2R values greater than 0.3 will be classified as gains, whereas those with values below −0.3 will be classified as losses. Values between −0.3 and 0.3 will be classified as neutral.
+#The outputs of this script will be used to identify discordant segments between PDX–PDO pairs in a separate GitHub script
+#Before you Please use the formulas detailed below to calculate correction factors to adjust raw median segment log2R values 
+Adjusted log2R=seg.median.logR+log2​(ploidyAll/2​)
+ploidyAll=(tumor fraction×tumor ploidy)+((1−tumor fraction)×2)
+Correction factors=log2​(ploidyAll​/2)
+Adjusted log2R=seg.median.logR+correction factors​
+
+The script:
+#!/bin/bash
+
+# INPUT FILES
+
+P2_SEG="PDX415267_noPoN.seg.txt"
+O2_SEG="ORG415267_noPoN.seg.txt"
+
+P2_DEPTH="PDX415267_noPoN.correctedDepth.txt"
+O2_DEPTH="ORG415267_noPoN.correctedDepth.txt"
+
+# PURITY/PLOIDY CORRECTIONS
+
+PDX_CORR=0.261467
+Organoid_CORR=0.271797
+
+# STEP 1
+# CREATE FINAL SEG FILES
+
+echo "Creating P2_final.seg.txt..."
+
+awk -v corr="$P2_CORR" '
+BEGIN{OFS="\t"}
+
+NR==1{
+    print $1,$2,$3,$4,$5,$6,
+          "Adj_seg.median.logR",
+          $7,$8,$9,$10,$11,$12,
+          "Simplified_Call",
+          "Threshold_Call"
+}
+
+NR>1{
+
+    adj=$6+corr
+
+    if($12=="NEUT")
+        simp="NEUTRAL"
+    else if($12=="HETD" || $12=="HOMD")
+        simp="LOSS"
+    else
+        simp="GAIN"
+
+    if(adj>0.3)
+        thresh="GAIN"
+    else if(adj<-0.3)
+        thresh="LOSS"
+    else
+        thresh="NEUTRAL"
+
+    print $1,$2,$3,$4,$5,$6,
+          adj,
+          $7,$8,$9,$10,$11,$12,
+          simp,
+          thresh
+}
+' "$P2_SEG" > P2_final.seg.txt
+
+
+echo "Creating O2_final.seg.txt..."
+
+awk -v corr="$O2_CORR" '
+BEGIN{OFS="\t"}
+
+NR==1{
+    print $1,$2,$3,$4,$5,$6,
+          "Adj_seg.median.logR",
+          $7,$8,$9,$10,$11,$12,
+          "Simplified_Call",
+          "Threshold_Call"
+}
+
+NR>1{
+
+    adj=$6+corr
+
+    if($12=="NEUT")
+        simp="NEUTRAL"
+    else if($12=="HETD" || $12=="HOMD")
+        simp="LOSS"
+    else
+        simp="GAIN"
+
+    if(adj>0.3)
+        thresh="GAIN"
+    else if(adj<-0.3)
+        thresh="LOSS"
+    else
+        thresh="NEUTRAL"
+
+    print $1,$2,$3,$4,$5,$6,
+          adj,
+          $7,$8,$9,$10,$11,$12,
+          simp,
+          thresh
+}
+' "$O2_SEG" > O2_final.seg.txt
+
+# STEP 2
+# ANNOTATE P2 CORRECTED DEPTH
+
+echo "Creating P2_correctedDepth_withAdjSeg.txt..."
+
+awk '
+BEGIN{OFS="\t"}
+
+FNR==1 && NR==FNR {next}
+
+NR==FNR{
+    n++
+    chr[n]=$2
+    segstart[n]=$3
+    segend[n]=$4
+    adj[n]=$7
+    thresh[n]=$15
+    next
+}
+
+FNR==1{
+    print $0,"Adj_seg.median.logR","Threshold_Call"
+    next
+}
+
+{
+    assigned_adj="NA"
+    assigned_thresh="NA"
+
+    for(i=1;i<=n;i++){
+
+        if($1==chr[i] &&
+           $2>=segstart[i] &&
+           $3<=segend[i]){
+
+            assigned_adj=adj[i]
+            assigned_thresh=thresh[i]
+            break
+        }
+    }
+
+    print $0,assigned_adj,assigned_thresh
+}
+' P2_final.seg.txt "$P2_DEPTH" \
+> P2_correctedDepth_withAdjSeg.txt
+
+# STEP 2
+# ANNOTATE O2 CORRECTED DEPTH
+
+echo "Creating O2_correctedDepth_withAdjSeg.txt..."
+
+awk '
+BEGIN{OFS="\t"}
+
+FNR==1 && NR==FNR {next}
+
+NR==FNR{
+    n++
+    chr[n]=$2
+    segstart[n]=$3
+    segend[n]=$4
+    adj[n]=$7
+    thresh[n]=$15
+    next
+}
+
+FNR==1{
+    print $0,"Adj_seg.median.logR","Threshold_Call"
+    next
+}
+
+{
+    assigned_adj="NA"
+    assigned_thresh="NA"
+
+    for(i=1;i<=n;i++){
+
+        if($1==chr[i] &&
+           $2>=segstart[i] &&
+           $3<=segend[i]){
+
+            assigned_adj=adj[i]
+            assigned_thresh=thresh[i]
+            break
+        }
+    }
+
+    print $0,assigned_adj,assigned_thresh
+}
+' O2_final.seg.txt "$O2_DEPTH" \
+> O2_correctedDepth_withAdjSeg.txt
+
+# STEP 3
+# SEGMENT DISCORDANCE
+
+echo "Creating P2_O2_segment_discordance.txt..."
+
+awk '
+BEGIN{OFS="\t"}
+
+FNR==1{next}
+
+NR==FNR{
+
+    if($5>=10 && $14==$15){
+
+        n++
+
+        chr[n]=$2
+        start[n]=$3
+        end[n]=$4
+        call[n]=$14
+    }
+
+    next
+}
+
+{
+
+    if(!($5>=10 && $14==$15))
+        next
+
+    o_chr=$2
+    o_start=$3
+    o_end=$4
+    o_call=$14
+
+    for(i=1;i<=n;i++){
+
+        if(chr[i]!=o_chr)
+            continue
+
+        ov_start=(start[i]>o_start ? start[i] : o_start)
+        ov_end=(end[i]<o_end ? end[i] : o_end)
+
+        if(ov_start<=ov_end){
+
+            if(call[i]!=o_call){
+
+                print o_chr,
+                      ov_start,
+                      ov_end,
+                      "P2_"call[i],
+                      "O2_"o_call
+            }
+        }
+    }
+}
+' P2_final.seg.txt O2_final.seg.txt \
+> P2_O2_segment_discordance.txt
+
+echo ""
+echo "Done."
+echo ""
+echo "Created:"
+echo "P2_final.seg.txt"
+echo "O2_final.seg.txt"
+echo "P2_correctedDepth_withAdjSeg.txt"
+echo "O2_correctedDepth_withAdjSeg.txt"
+echo "P2_O2_segment_discordance.txt"
