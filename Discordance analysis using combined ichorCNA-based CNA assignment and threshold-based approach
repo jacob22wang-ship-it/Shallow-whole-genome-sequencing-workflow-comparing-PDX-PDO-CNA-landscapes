@@ -1,0 +1,73 @@
+#!/bin/bash
+
+GENCODE="/.../gencode.v50.protein_coding.genes.bed"
+
+# Create BED file
+
+awk '
+BEGIN{OFS="\t"}
+{
+    print $1,$2,$3
+}
+' P2_O2_segment_discordance.txt \
+> P2_O2_discordant_regions.bed
+
+# Intersect with GENCODE
+
+bedtools intersect \
+-a P2_O2_discordant_regions.bed \
+-b "$GENCODE" \
+-wa -wb \
+> P2_O2_discordant_regions_genes.tsv
+
+# Generate gene lists
+#
+# Output a gene list for every sample
+# that deviates from NEUTRAL.
+
+while read chr start end p2call o2call
+do
+
+    # P2 deviations
+
+    if [[ "$p2call" == "P2_GAIN" ]]
+    then
+
+        awk -v c="$chr" '$1==c' P2_O2_discordant_regions_genes.tsv \
+        | cut -f7 \
+        | sort -u \
+        > P2_${chr}_gain_genes.txt
+
+    elif [[ "$p2call" == "P2_LOSS" ]]
+    then
+
+        awk -v c="$chr" '$1==c' P2_O2_discordant_regions_genes.tsv \
+        | cut -f7 \
+        | sort -u \
+        > P2_${chr}_loss_genes.txt
+
+    fi
+
+    # O2 deviations
+
+    if [[ "$o2call" == "O2_GAIN" ]]
+    then
+
+        awk -v c="$chr" '$1==c' P2_O2_discordant_regions_genes.tsv \
+        | cut -f7 \
+        | sort -u \
+        > O2_${chr}_gain_genes.txt
+
+    elif [[ "$o2call" == "O2_LOSS" ]]
+    then
+
+        awk -v c="$chr" '$1==c' P2_O2_discordant_regions_genes.tsv \
+        | cut -f7 \
+        | sort -u \
+        > O2_${chr}_loss_genes.txt
+
+    fi
+
+done < P2_O2_segment_discordance.txt
+
+echo "Done."
