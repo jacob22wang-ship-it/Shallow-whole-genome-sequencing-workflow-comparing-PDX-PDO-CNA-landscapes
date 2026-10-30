@@ -1,0 +1,27 @@
+#!/bin/bash
+#SBATCH -J Xengsort_PDX
+#SBATCH -p veryhimem
+#SBATCH -t 2-00:00:00
+#SBATCH --mem=500G
+#SBATCH -c 1
+#SBATCH -o xengsort_PDX-%j.out
+#SBATCH --error xengsort_PDX-%j.err
+
+module load singularity/4.3.2
+
+export TMPDIR=DIR
+export TMP=DIR
+export TEMP=DIR
+
+mkdir -p /DIR
+
+cd /DIR
+
+singularity exec xengsort.sif \
+xengsort classify \
+--index /DIR \
+--fastq /DIR \
+--pairs /DIR \
+--out /DIR \
+--threads 8 \
+--progress
