@@ -1,4 +1,10 @@
-#Please note that ichorCNA will be run using a modified plotting.R file, which is displayed at the end of this document.
+#Please note that ichorCNA will be run using a modified plotting.R file, which is displayed at the end of this document. The other required documents can be obtained by running git clone https://github.com/broadinstitute/ichorCNA.git and git clone https://github.com/shahcompbio/hmmcopy_utils.git.
+
+#To enable ichorCNA to use the modified plotting.R file, run the following commands:
+module load R
+cd /ichorCNA_DIR
+R CMD INSTALL .
+
 #Once you obtain the recal.cram file, follow the steps below:
 
 #Convert the recal.cram file into a bam file
