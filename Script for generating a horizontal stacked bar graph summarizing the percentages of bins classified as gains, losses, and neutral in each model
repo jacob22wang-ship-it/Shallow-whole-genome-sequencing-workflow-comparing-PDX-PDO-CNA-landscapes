@@ -1,0 +1,241 @@
+setwd("/DIR")
+
+library(data.table)
+library(ggplot2)
+
+# FILES
+
+files <- c(
+  "P1_correctedDepth_withAdjSeg.txt",
+  "O1_correctedDepth_withAdjSeg.txt",
+  "P2_correctedDepth_withAdjSeg.txt",
+  "O2_correctedDepth_withAdjSeg.txt",
+  "P3_correctedDepth_withAdjSeg.txt",
+  "O3_correctedDepth_withAdjSeg.txt",
+  "P4_correctedDepth_withAdjSeg.txt",
+  "O4_correctedDepth_withAdjSeg.txt",
+  "P5_correctedDepth_withAdjSeg.txt",
+  "O5_correctedDepth_withAdjSeg.txt",
+  "P6_correctedDepth_withAdjSeg.txt",
+  "O6_correctedDepth_withAdjSeg.txt",
+  "P7_correctedDepth_withAdjSeg.txt",
+  "O7_correctedDepth_withAdjSeg.txt"
+)
+
+# SUMMARIZE CNV STATES
+
+all_summary <- list()
+
+for (f in files) {
+  
+  sample_name <- sub(
+    "_correctedDepth_withAdjSeg.txt",
+    "",
+    basename(f)
+  )
+  
+  dt <- fread(f)
+  
+  dt <- dt[
+    !is.na(Threshold_Call)
+  ]
+  
+  dt <- dt[
+    Threshold_Call %in% c(
+      "GAIN",
+      "NEUTRAL",
+      "LOSS"
+    )
+  ]
+  
+  summary_dt <- dt[
+    ,
+    .(N = .N),
+    by = Threshold_Call
+  ]
+  
+  summary_dt <- merge(
+    data.table(
+      Threshold_Call = c(
+        "GAIN",
+        "NEUTRAL",
+        "LOSS"
+      )
+    ),
+    summary_dt,
+    by = "Threshold_Call",
+    all.x = TRUE
+  )
+  
+  summary_dt[
+    is.na(N),
+    N := 0
+  ]
+  
+  summary_dt[
+    ,
+    Percent := 100 * N / sum(N)
+  ]
+  
+  summary_dt[
+    ,
+    Sample := sample_name
+  ]
+  
+  all_summary[[sample_name]] <- summary_dt
+}
+
+summary_all <- rbindlist(all_summary)
+
+# ORDER SAMPLES
+
+summary_all[
+  ,
+  Sample := factor(
+    Sample,
+    levels = rev(c(
+      "P1","O1",
+      "P2","O2",
+      "P3","O3",
+      "P4","O4",
+      "P5","O5",
+      "P6","O6",
+      "P7","O7"
+    ))
+  )
+]
+
+# STACK ORDER
+# LEFT -> RIGHT:
+# GAIN -> NEUTRAL -> LOSS
+
+summary_all[
+  ,
+  Threshold_Call := factor(
+    Threshold_Call,
+    levels = c(
+      "LOSS",
+      "NEUTRAL",
+      "GAIN"
+    )
+  )
+]
+
+# PLOT
+
+p <- ggplot(
+  summary_all,
+  aes(
+    y = Sample,
+    x = N,
+    fill = Threshold_Call
+  )
+) +
+  
+  geom_col(
+    position = "fill",
+    width = 0.90,
+    color = "white",
+    linewidth = 0.2
+  ) +
+  
+  scale_fill_manual(
+    values = c(
+      GAIN    = "#E24C4C",  # red
+      NEUTRAL = "#8A8A8A",  # grey
+      LOSS    = "#4C78E2"   # blue
+    )
+  ) +
+  
+  guides(
+    fill = guide_legend(
+      reverse = TRUE
+    )
+  ) +
+  
+  scale_x_continuous(
+    breaks = seq(0, 1, by = 0.2),
+    labels = c(
+      "0",
+      "20",
+      "40",
+      "60",
+      "80",
+      "100"
+    ),
+    expand = expansion(
+      mult = c(0, 0.02)
+    )
+  ) +
+  
+  labs(
+    x = "Percent of Bins (%)",
+    y = NULL,
+    fill = NULL
+  ) +
+  
+  theme_bw(base_size = 16) +
+  
+  theme(
+    
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor = element_blank(),
+    
+    axis.text.y = element_text(
+      size = 14,
+      face = "bold"
+    ),
+    
+    axis.text.x = element_text(
+      size = 9,
+      face = "bold"
+    ),
+    
+    axis.title.x = element_text(
+      size = 16,
+      face = "bold"
+    ),
+    
+    legend.position = "top",
+    
+    legend.title = element_text(
+      size = 12,
+      face = "bold"
+    ),
+    
+    legend.text = element_text(
+      size = 11
+    ),
+    
+    panel.border = element_rect(
+      color = "black",
+      linewidth = 0.8
+    )
+  )
+
+# SAVE
+
+ggsave(
+  "PDX_PDO_CNV_Composition_100Percent_StackedBar.png",
+  p,
+  width = 10,
+  height = 8,
+  dpi = 300,
+  bg = "white"
+)
+
+# EXPORT TABLE
+
+fwrite(
+  summary_all,
+  "PDX_PDO_CNV_Composition_Summary.tsv",
+  sep = "\t"
+)
+
+cat(
+  "\nSaved:\nPDX_PDO_CNV_Composition_100Percent_StackedBar.png\n"
+)
+
+cat(
+  "\nSummary table:\nPDX_PDO_CNV_Composition_Summary.tsv\n"
+)
