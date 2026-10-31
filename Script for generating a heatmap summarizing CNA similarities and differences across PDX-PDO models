@@ -1,0 +1,345 @@
+#Before running the script below, convert your correctedDepth files into .cnr format using the following command:
+awk 'BEGIN{
+OFS="\t";
+print "chromosome","start","end","gene","log2"
+}
+NR>1 && $4!="NA"{
+print $1,$2,$3,".",$4
+}' File.correctedDepth.txt > File.cnr
+
+Example script for generating a summary heatmap using the threshold-based CNA classifications:
+setwd("/DIR")
+
+library(data.table)
+library(ggplot2)
+library(scales)
+
+# READ ALL CNR FILES
+
+p1 <- fread("P1.cnr")
+o1 <- fread("O1.cnr")
+
+p2 <- fread("P2.cnr")
+o2 <- fread("O2.cnr")
+
+p3 <- fread("P3.cnr")
+o3 <- fread("O3.cnr")
+
+p4 <- fread("P4.cnr")
+o4 <- fread("O4.cnr")
+
+p5 <- fread("P5.cnr")
+o5 <- fread("O5.cnr")
+
+p6 <- fread("P6.cnr")
+o6 <- fread("O6.cnr")
+
+p7 <- fread("P7.cnr")
+o7 <- fread("O7.cnr")
+
+# REMOVE GENE COLUMN
+
+p1[, gene := NULL]; o1[, gene := NULL]
+p2[, gene := NULL]; o2[, gene := NULL]
+p3[, gene := NULL]; o3[, gene := NULL]
+p4[, gene := NULL]; o4[, gene := NULL]
+p5[, gene := NULL]; o5[, gene := NULL]
+p6[, gene := NULL]; o6[, gene := NULL]
+p7[, gene := NULL]; o7[, gene := NULL]
+
+# RENAME LOG2 COLUMNS
+
+setnames(p1, "log2", "log2_P1")
+setnames(o1, "log2", "log2_O1")
+
+setnames(p2, "log2", "log2_P2")
+setnames(o2, "log2", "log2_O2")
+
+setnames(p3, "log2", "log2_P3")
+setnames(o3, "log2", "log2_O3")
+
+setnames(p4, "log2", "log2_P4")
+setnames(o4, "log2", "log2_O4")
+
+setnames(p5, "log2", "log2_P5")
+setnames(o5, "log2", "log2_O5")
+
+setnames(p6, "log2", "log2_P6")
+setnames(o6, "log2", "log2_O6")
+
+setnames(p7, "log2", "log2_P7")
+setnames(o7, "log2", "log2_O7")
+
+# KEEP ONLY SHARED BINS
+
+merged <- Reduce(
+  function(x, y)
+    merge(
+      x,
+      y,
+      by = c(
+        "chromosome",
+        "start",
+        "end"
+      )
+    ),
+  list(
+    p1,o1,
+    p2,o2,
+    p3,o3,
+    p4,o4,
+    p5,o5,
+    p6,o6,
+    p7,o7
+  )
+)
+
+# CHROMOSOME ORDER
+
+chr_levels <- c(
+  paste0("chr", 1:22),
+  "chrX"
+)
+
+merged[, chromosome := factor(
+  chromosome,
+  levels = chr_levels
+)]
+
+setorder(
+  merged,
+  chromosome,
+  start
+)
+
+# BIN INDEX
+
+merged[, bin_id := .I]
+
+# LONG FORMAT
+
+dt <- melt(
+  merged,
+  id.vars = c(
+    "chromosome",
+    "start",
+    "end",
+    "bin_id"
+  ),
+  measure.vars = c(
+    "log2_P1","log2_O1",
+    "log2_P2","log2_O2",
+    "log2_P3","log2_O3",
+    "log2_P4","log2_O4",
+    "log2_P5","log2_O5",
+    "log2_P6","log2_O6",
+    "log2_P7","log2_O7"
+  ),
+  variable.name = "Sample",
+  value.name = "log2"
+)
+
+dt[, Sample := gsub("^log2_", "", Sample)]
+
+# REDUCED PAIR SPACING
+
+sample_positions <- data.table(
+  Sample = c(
+    "P1","O1",
+    "P2","O2",
+    "P3","O3",
+    "P4","O4",
+    "P5","O5",
+    "P6","O6",
+    "P7","O7"
+  ),
+  y = c(
+    14.0, 13.0,
+    11.9, 10.9,
+    9.8,  8.8,
+    7.7,  6.7,
+    5.6,  4.6,
+    3.5,  2.5,
+    1.4,  0.4
+  )
+)
+
+dt <- merge(
+  dt,
+  sample_positions,
+  by = "Sample"
+)
+
+# CHROMOSOME BOUNDARIES
+
+chr_info <- merged[
+  ,
+  .(
+    start_bin = min(bin_id),
+    end_bin   = max(bin_id)
+  ),
+  by = chromosome
+]
+
+boundaries <- chr_info$end_bin
+
+# CHROMOSOME LABEL POSITIONS
+
+chr_centers <- chr_info[
+  ,
+  .(
+    chromosome,
+    center = (start_bin + end_bin) / 2
+  )
+]
+
+chr_centers[
+  ,
+  chr_label := gsub(
+    "^chr",
+    "",
+    as.character(chromosome)
+  )
+]
+
+# HEATMAP
+
+p <- ggplot(
+  dt,
+  aes(
+    x = bin_id,
+    y = y,
+    fill = log2
+  )
+) +
+  
+  geom_tile(
+    width = 1,
+    height = 0.95
+  ) +
+  
+  scale_fill_gradientn(
+    
+    colours = c(
+      "#4C78E2",
+      "#4C78E2",
+      
+      "#8A8A8A",
+      "#8A8A8A",
+      
+      "#E24C4C",
+      "#E24C4C"
+    ),
+    
+    values = rescale(
+      c(
+        -2,
+        -0.3,
+        -0.2999,
+        0.3,
+        0.3001,
+        2
+      ),
+      from = c(-2, 2)
+    ),
+    
+    limits = c(-2, 2),
+    
+    breaks = c(
+      -2,
+      -1,
+      0,
+      1,
+      2
+    ),
+    
+    oob = squish,
+    
+    name = "Adj log2",
+    
+    guide = guide_colorbar(
+      title.position = "top",
+      title.hjust = 0.5
+    )
+  ) +
+  
+  geom_vline(
+    xintercept = boundaries,
+    colour = "black",
+    linewidth = 0.5
+  ) +
+  
+  scale_x_continuous(
+    breaks = chr_centers$center,
+    labels = chr_centers$chr_label,
+    expand = c(0, 0)
+  ) +
+  
+  scale_y_continuous(
+    breaks = sample_positions$y,
+    labels = sample_positions$Sample,
+    expand = c(0.01, 0.01)
+  ) +
+  
+  labs(
+    x = NULL,
+    y = "Samples"
+  ) +
+  
+  theme_bw(base_size = 16) +
+  
+  theme(
+    panel.grid = element_blank(),
+    
+    panel.background = element_rect(
+      fill = "white"
+    ),
+    
+    plot.background = element_rect(
+      fill = "white"
+    ),
+    
+    axis.text.x = element_text(
+      angle = 90,
+      size = 9,
+      face = "bold",
+      hjust = 1
+    ),
+    
+    axis.text.y = element_text(
+      face = "bold",
+      size = 14
+    ),
+    
+    axis.title.y = element_text(
+      face = "bold",
+      size = 16
+    ),
+    
+    axis.title.x = element_blank(),
+    
+    panel.border = element_rect(
+      colour = "black",
+      linewidth = 0.8
+    ),
+    
+    legend.title = element_text(
+      face = "bold",
+      size = 12
+    ),
+    
+    legend.text = element_text(
+      size = 11
+    )
+  )
+
+# SAVE FIGURE
+
+ggsave(
+  "All_PDX_Organoid_AdjSeg_3StateHeatmap.png",
+  p,
+  width = 18,
+  height = 8,
+  dpi = 300,
+  bg = "white"
+)
