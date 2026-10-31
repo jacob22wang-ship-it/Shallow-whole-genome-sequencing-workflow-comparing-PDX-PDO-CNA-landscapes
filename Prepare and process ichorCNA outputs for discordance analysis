@@ -1,11 +1,12 @@
 #By the end of the ichorCNA workflow, you should obtain two output files: seg.txt, which contains median segment-level log2R values, and correctedDepth.txt, which contains bin-level raw log2R values.
 #The purpose of this script is to add a new column, Adj_seg.median.logR, to the seg.txt file. 
-#These adjusted median segment log2R values are then mapped to the corresponding genomic bins in the correctedDepth.txt file so that each bin is assigned the adjusted median segment log2R value of the segment that overlaps its genomic coordinates
+#These adjusted median segment log2R values are then mapped to the corresponding genomic bins in the correctedDepth.txt file so that each bin is assigned the adjusted median segment log2R value of the segment that overlaps its genomic coordinates.
 #The final ichorCNA copy number classification column (Corrected_Call) will also be added to the correctedDepth.txt file.
 #Additionally, the ichorCNA's copy number classification column (Corrected_Call) will be simplified as gain, neutral, loss.
 #Finally, an additional column will be added to the correctedDepth.txt file based on our threshold-based classification strategy. Specifically, bins with adjusted median segment log2R values greater than 0.3 will be classified as gains, whereas those with values below −0.3 will be classified as losses. Values between −0.3 and 0.3 will be classified as neutral.
-#The outputs of this script will be used to identify discordant segments between PDX–PDO pairs in a separate GitHub script
-#Before you Please use the formulas detailed below to calculate correction factors to adjust raw median segment log2R values 
+#The outputs of this script will be used to identify discordant segments between PDX–PDO pairs in a separate GitHub script.
+#Before you Please use the formulas detailed below to calculate correction factors to adjust raw median segment log2R values.
+#Please note that PDX and PDO are abbreviated as P and O,respectively, in the script below.
 Adjusted log2R=seg.median.logR+log2​(ploidyAll/2​)
 ploidyAll=(tumor fraction×tumor ploidy)+((1−tumor fraction)×2)
 Correction factors=log2​(ploidyAll​/2)
