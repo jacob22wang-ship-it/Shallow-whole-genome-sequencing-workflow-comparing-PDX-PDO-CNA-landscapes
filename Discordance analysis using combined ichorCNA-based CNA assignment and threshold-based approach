@@ -1,6 +1,6 @@
 #!/bin/bash
 
-GENCODE="/.../gencode.v50.protein_coding.genes.bed"
+GENCODE="/Users/jiahuiwang/Desktop/Organoid vs Xenograft Miniproject/Annotate_LPWGS/gencode/gencode/gencode.v50.protein_coding.genes.bed"
 
 # Create BED file
 
@@ -20,10 +20,15 @@ bedtools intersect \
 -wa -wb \
 > P2_O2_discordant_regions_genes.tsv
 
-# Generate gene lists
-#
-# Output a gene list for every sample
-# that deviates from NEUTRAL.
+# Clean old outputs
+
+rm -f *.tmp
+rm -f P2_chr*_gain_genes.txt
+rm -f P2_chr*_loss_genes.txt
+rm -f O2_chr*_gain_genes.txt
+rm -f O2_chr*_loss_genes.txt
+
+# Generate sample-specific gene lists
 
 while read chr start end p2call o2call
 do
@@ -33,18 +38,24 @@ do
     if [[ "$p2call" == "P2_GAIN" ]]
     then
 
-        awk -v c="$chr" '$1==c' P2_O2_discordant_regions_genes.tsv \
-        | cut -f7 \
-        | sort -u \
-        > P2_${chr}_gain_genes.txt
+        awk \
+            -v c="$chr" \
+            -v s="$start" \
+            -v e="$end" \
+            '$1==c && $2==s && $3==e {print $7}' \
+            P2_O2_discordant_regions_genes.tsv \
+            >> P2_${chr}_gain_genes.tmp
 
     elif [[ "$p2call" == "P2_LOSS" ]]
     then
 
-        awk -v c="$chr" '$1==c' P2_O2_discordant_regions_genes.tsv \
-        | cut -f7 \
-        | sort -u \
-        > P2_${chr}_loss_genes.txt
+        awk \
+            -v c="$chr" \
+            -v s="$start" \
+            -v e="$end" \
+            '$1==c && $2==s && $3==e {print $7}' \
+            P2_O2_discordant_regions_genes.tsv \
+            >> P2_${chr}_loss_genes.tmp
 
     fi
 
@@ -53,21 +64,38 @@ do
     if [[ "$o2call" == "O2_GAIN" ]]
     then
 
-        awk -v c="$chr" '$1==c' P2_O2_discordant_regions_genes.tsv \
-        | cut -f7 \
-        | sort -u \
-        > O2_${chr}_gain_genes.txt
+        awk \
+            -v c="$chr" \
+            -v s="$start" \
+            -v e="$end" \
+            '$1==c && $2==s && $3==e {print $7}' \
+            P2_O2_discordant_regions_genes.tsv \
+            >> O2_${chr}_gain_genes.tmp
 
     elif [[ "$o2call" == "O2_LOSS" ]]
     then
 
-        awk -v c="$chr" '$1==c' P2_O2_discordant_regions_genes.tsv \
-        | cut -f7 \
-        | sort -u \
-        > O2_${chr}_loss_genes.txt
+        awk \
+            -v c="$chr" \
+            -v s="$start" \
+            -v e="$end" \
+            '$1==c && $2==s && $3==e {print $7}' \
+            P2_O2_discordant_regions_genes.tsv \
+            >> O2_${chr}_loss_genes.tmp
 
     fi
 
 done < P2_O2_segment_discordance.txt
+
+# Deduplicate final gene lists
+
+for f in *.tmp
+do
+    [[ -e "$f" ]] || continue
+
+    sort -u "$f" > "${f%.tmp}.txt"
+done
+
+rm -f *.tmp
 
 echo "Done."
